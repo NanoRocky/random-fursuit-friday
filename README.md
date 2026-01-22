@@ -21,9 +21,9 @@ Bilibili 话题随机图片重定向 API，适配腾讯云 EdgeOne 边缘函数�
 ### 腾讯云 EdgeOne 边缘函数
 
 1. 在 EdgeOne 控制台创建边缘函数
-2. 运行时选择 **JavaScript**
-3. 复制 `randfurfriday.js` 的全部代码到函数编辑器
-4. 点击发布
+2. 复制 `randfurfriday.js` 的全部代码到函数编辑器
+3. 点击发布
+4、设置触发规则绑定到域名
 
 ### 配置
 

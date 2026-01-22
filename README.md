@@ -15,6 +15,8 @@
 | `type=mobile` | 返回竖图，同 phone | `?type=mobile` |
 | `type=all` | 不限比例，任意图片 | `?type=all` |
 | `type=info` | 返回 HTML 说明页面 | `?type=info` |
+| `tc=0` | 返回图片 URL | `?tc=0` |
+| `tc=1` | 返回图片数据 | `?tc=1` |
 
 ## 部署
 

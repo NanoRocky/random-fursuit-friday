@@ -2,7 +2,7 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Bilibili 话题随机图片重定向 API，适配腾讯云 EdgeOne 边缘函数。
+随机从 Bilibili 话题 FursuitFriday 获取图片，适配腾讯云 EdgeOne 边缘函数。
 
 ## 使用
 

@@ -15,7 +15,7 @@ async function handleRequest(request) {
     /* 每页请求数量（最大 54） */
     const PAGE_SIZE = 54;
     /* 最大尝试检查的动态数量，防止死循环 */
-    const MAX_RETRY_ITEMS = 32;
+    const MAX_RETRY_ITEMS = 42;
     /* 随机翻页的最大深度（建议不要太大，否则边缘函数会超时） */
     const MAX_RANDOM_PAGE = 7;
     const commonHeaders = {
@@ -82,18 +82,20 @@ async function handleRequest(request) {
                 if (checkedCount >= MAX_RETRY_ITEMS) break;
                 const opus = item.dynamic_card_item?.modules?.module_dynamic?.major?.opus;
                 if (opus && opus.pics && opus.pics.length > 0) {
-                    const picIndex = Math.floor(Math.random() * opus.pics.length);
-                    const pic = opus.pics[picIndex];
-                    const w = pic.width;
-                    const h = pic.height;
-                    const isHorizontal = w > h; /* 宽 > 高 为横屏 */
-                    if ((type === 'pc' && isHorizontal) || (type === 'phone' && !isHorizontal) || (type === 'mobile' && !isHorizontal) || (type === 'all')) {
-                        foundImageUrl = pic.url;
-                        if (foundImageUrl.startsWith('http://')) {
-                            foundImageUrl = foundImageUrl.replace('http://', 'https://');
+                    /* 将该动态的所有图片打乱顺序后逐一尝试，直到匹配或耗尽 */
+                    const shuffledPics = [...opus.pics].sort(() => Math.random() - 0.5);
+                    for (const pic of shuffledPics) {
+                        const w = pic.width;
+                        const h = pic.height;
+                        const isHorizontal = w > h; /* 宽 > 高 为横屏 */
+                        if ((type === 'pc' && isHorizontal) || (type === 'phone' && !isHorizontal) || (type === 'mobile' && !isHorizontal) || (type === 'all')) {
+                            foundImageUrl = pic.url;
+                            if (foundImageUrl.startsWith('http://')) {
+                                foundImageUrl = foundImageUrl.replace('http://', 'https://');
+                            };
+                            break;
                         };
-                        break;
-                    };
+                    }
                 };
                 checkedCount++;
             };

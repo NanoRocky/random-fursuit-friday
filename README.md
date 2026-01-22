@@ -23,7 +23,7 @@ Bilibili 话题随机图片重定向 API，适配腾讯云 EdgeOne 边缘函数�
 1. 在 EdgeOne 控制台创建边缘函数
 2. 复制 `randfurfriday.js` 的全部代码到函数编辑器
 3. 点击发布
-4、设置触发规则绑定到域名
+4. 设置触发规则绑定到域名
 
 ### 配置
 
@@ -39,3 +39,4 @@ const MAX_RANDOM_PAGE = 7;         // 最多翻页数
 [MIT License](LICENSE)
 
 ---
+&nbsp;<a title="CDN" target="_blank" href="https://cdnjs.com/"><img src="https://img.shields.io/badge/CDN-Tencent EdgeOne-blue"></a>&nbsp;<a title="Copyright" target="_blank" href="https://nanorocky.top/"><img src="https://img.shields.io/badge/Copyright%20%C2%A9%202023--2025-酪灰-red"></a>

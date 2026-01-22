@@ -21,10 +21,10 @@ async function handleRequest(request) {
     const commonHeaders = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
         "Referer": "https://www.bilibili.com/",
-        "origin": "https://www.bilibili.com",
+        "Origin": "https://www.bilibili.com",
         "Accept": "application/json",
-        "accept-encoding": "gzip, deflate, br, zstd",
-        "accept-language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7"
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7"
     };
 
     try {
@@ -32,7 +32,10 @@ async function handleRequest(request) {
         if (type === 'info') {
             return new Response(Documentation(request.url), {
                 status: 200,
-                headers: { 'Content-Type': 'text/html; charset=utf-8' }
+                headers: {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Cache-Control': 'public, max-age=0, s-maxage=0'
+                },
             });
         };
 
@@ -43,7 +46,10 @@ async function handleRequest(request) {
         if (tc === '1' && !allowProxy) {
             return new Response("当前不允许使用代获取模式", {
                 status: 403,
-                headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+                headers: {
+                    'Content-Type': 'text/plain; charset=utf-8',
+                    'Cache-Control': 'public, max-age=0, s-maxage=0'
+                },
             });
         };
 
@@ -108,15 +114,16 @@ async function handleRequest(request) {
                     headers: {
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
                         "Referer": "https://www.bilibili.com/",
-                        "origin": "https://www.bilibili.com",
-                        "accept-encoding": "gzip, deflate, br, zstd",
-                        "accept-language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7"
-                    }
+                        "Origin": "https://www.bilibili.com",
+                        "Accept-Encoding": "gzip, deflate, br, zstd",
+                        "Accept-Language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7"
+                    },
                 });
                 return new Response(imgResp.body, {
                     headers: {
                         'Content-Type': imgResp.headers.get('Content-Type') || 'image/jpeg',
-                    }
+                        'Cache-Control': 'public, max-age=0, s-maxage=0'
+                    },
                 });
             };
             /* 默认 302 重定向模式 */

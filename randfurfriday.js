@@ -62,6 +62,7 @@ async function handleRequest(event) {
 
         let currentOffset = "";
         let foundImageUrl = null;
+        let foundOpusId = null;
         let checkedCount = 0;
 
         /* 1. 随机决定起始页并跳过 */
@@ -98,6 +99,8 @@ async function handleRequest(event) {
                 if (checkedCount >= MAX_RETRY_ITEMS) break;
                 const opus = item.dynamic_card_item?.modules?.module_dynamic?.major?.opus;
                 if (opus && opus.pics && opus.pics.length > 0) {
+                    const opusIdMatch = opus.jump_url ? opus.jump_url.match(/\d+/) : null;
+                    const currentOpusId = opusIdMatch ? opusIdMatch[0] : null;
                     /* 将该动态的所有图片打乱顺序后逐一尝试，直到匹配或耗尽 */
                     const shuffledPics = [...opus.pics].sort(() => Math.random() - 0.5);
                     for (const pic of shuffledPics) {
@@ -106,12 +109,13 @@ async function handleRequest(event) {
                         const isHorizontal = w > h; /* 宽 > 高 为横屏 */
                         if ((type === 'pc' && isHorizontal) || (type === 'phone' && !isHorizontal) || (type === 'mobile' && !isHorizontal) || (type === 'all')) {
                             foundImageUrl = pic.url;
+                            foundOpusId = currentOpusId;
                             if (foundImageUrl.startsWith('http://')) {
                                 foundImageUrl = foundImageUrl.replace('http://', 'https://');
                             };
                             break;
                         };
-                    }
+                    };
                 };
                 if (foundImageUrl) break; // 找到后退出 item 循环
                 checkedCount++;
@@ -133,11 +137,16 @@ async function handleRequest(event) {
                 return new Response(imgResp.body, {
                     headers: {
                         'Content-Type': imgResp.headers.get('Content-Type') || 'image/jpeg',
-                        'Cache-Control': 'public, max-age=0, s-maxage=0'
+                        'Cache-Control': 'public, max-age=0, s-maxage=0',
+                        'opus_id': foundOpusId || '',
                     },
                 });
             };
             /* 默认 302 重定向模式 */
+            if (foundOpusId) {
+                const separator = foundImageUrl.includes('?') ? '&' : '?';
+                foundImageUrl = `${foundImageUrl}${separator}opus_id=${foundOpusId}`;
+            };
             return Response.redirect(foundImageUrl, 302);
         };
         return new Response("ERROR", { status: 200 });

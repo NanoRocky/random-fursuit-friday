@@ -65,7 +65,7 @@ async function handleRequest(event) {
         let checkedCount = 0;
 
         /* 1. 随机决定起始页并跳过 */
-        const flipPages = Math.floor(Math.sqrt(Math.random()) * MAX_RANDOM_PAGE);
+        const flipPages = Math.floor(Math.pow(Math.random(), 1.3) * MAX_RANDOM_PAGE);
         if (DEBUG_MODE) console.log(`[调试] 随机翻页深度: ${flipPages}`);
         for (let p = 0; p < flipPages; p++) {
             let apiUrl = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/topic?topic_id=${TOPIC_ID}&sort_by=3&page_size=${PAGE_SIZE}`;

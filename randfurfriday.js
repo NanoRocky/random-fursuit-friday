@@ -1,9 +1,11 @@
 /**
  * Bilibili 随机毛五 API
  * 适配腾讯云 EdgeOne 边缘函数
+ * by NanoRocky
  */
 
-async function handleRequest(request) {
+async function handleRequest(event) {
+    const { request } = event;
     const url = new URL(request.url);
     /* 获取参数，默认为 pc。【可用参数：pc、phone、mobile、all】 */
     const type = url.searchParams.get('type') || 'pc';
@@ -15,9 +17,14 @@ async function handleRequest(request) {
     /* 每页请求数量（最大 54） */
     const PAGE_SIZE = 54;
     /* 最大尝试检查的动态数量，防止死循环 */
-    const MAX_RETRY_ITEMS = 42;
+    const MAX_RETRY_ITEMS = 86;
     /* 随机翻页的最大深度（建议不要太大，否则边缘函数会超时） */
-    const MAX_RANDOM_PAGE = 7;
+    const MAX_RANDOM_PAGE = 32;
+    /* 是否启用接口缓存 */
+    const USE_CACHE = true;
+    /* 是否启用调试模式 */
+    const DEBUG_MODE = false;
+
     const commonHeaders = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
         "Referer": "https://www.bilibili.com/",
@@ -59,11 +66,14 @@ async function handleRequest(request) {
 
         /* 1. 随机决定起始页并跳过 */
         const flipPages = Math.floor(Math.random() * MAX_RANDOM_PAGE);
+        if (DEBUG_MODE) console.log(`[调试] 随机翻页深度: ${flipPages}`);
         for (let p = 0; p < flipPages; p++) {
             let apiUrl = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/topic?topic_id=${TOPIC_ID}&sort_by=3&page_size=${PAGE_SIZE}`;
             if (currentOffset) apiUrl += `&offset=${currentOffset}`;
-            const resp = await fetch(apiUrl, { headers: commonHeaders });
-            const json = await resp.json();
+
+            // --- 使用缓存函数 ---
+            const json = await fetchWithCache(event, apiUrl, commonHeaders, USE_CACHE, DEBUG_MODE);
+
             if (json.code !== 0 || !json.data?.topic_card_list) {
                 throw new Error("BiliAPI_Error");
             };
@@ -75,8 +85,8 @@ async function handleRequest(request) {
         for (let p = flipPages; p < MAX_RANDOM_PAGE && !foundImageUrl; p++) {
             let apiUrl = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/topic?topic_id=${TOPIC_ID}&sort_by=3&page_size=${PAGE_SIZE}`;
             if (currentOffset) apiUrl += `&offset=${currentOffset}`;
-            const resp = await fetch(apiUrl, { headers: commonHeaders });
-            const json = await resp.json();
+            // --- 使用缓存函数 ---
+            const json = await fetchWithCache(event, apiUrl, commonHeaders, USE_CACHE, DEBUG_MODE);
             if (json.code !== 0 || !json.data?.topic_card_list) {
                 throw new Error("BiliAPI_Error");
             };
@@ -103,6 +113,7 @@ async function handleRequest(request) {
                         };
                     }
                 };
+                if (foundImageUrl) break; // 找到后退出 item 循环
                 checkedCount++;
             };
             if (!json.data.topic_card_list.has_more) break;
@@ -131,12 +142,40 @@ async function handleRequest(request) {
         };
         return new Response("ERROR", { status: 200 });
     } catch (e) {
+        if (DEBUG_MODE) console.log(`[调试] 发生错误: ${e.message}`);
         return new Response("ERROR", { status: 200 });
     };
 };
 
+/**
+ * 缓存处理辅助函数
+ */
+async function fetchWithCache(event, apiUrl, headers, useCache, debugMode) {
+    /* TODO: 好奇怪，直接访问测试速度确实有明显提升，但控制台输出日志全是未命中缓存... 为什么呢... */
+    const cache = await caches.open("RDFURFRI");
+    const cacheKey = new Request(apiUrl);
+    if (useCache) {
+        const cachedResponse = await cache.match(cacheKey);
+        if (cachedResponse) {
+            if (debugMode) console.log(`[调试] 命中缓存: ${apiUrl}`);
+            return await cachedResponse.json();
+        };
+    };
+    if (debugMode) console.log(`[调试] 缓存未命中，回源请求: ${apiUrl}`);
+    const response = await fetch(apiUrl, { headers });
+    const data = await response.json();
+    if (useCache && data.code === 0) {
+        const responseToCache = new Response(JSON.stringify(data));
+        /* 设置 s-maxage 为 28800 (8小时) */
+        responseToCache.headers.append('Cache-Control', 's-maxage=28800');
+        event.waitUntil(cache.put(cacheKey, responseToCache.clone()));
+        if (debugMode) console.log(`[调试] 已存入新缓存，有效期 8 小时`);
+    };
+    return data;
+};
+
 addEventListener('fetch', event => {
-    event.respondWith(handleRequest(event.request));
+    event.respondWith(handleRequest(event));
 });
 
 function normalizeReferer(referer) {
@@ -178,4 +217,4 @@ function Documentation(currentUrl) {
         </body>
         </html>`
     ].join('');
-}
+};

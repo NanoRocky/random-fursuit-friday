@@ -19,7 +19,7 @@ async function handleRequest(event) {
     /* 最大尝试检查的动态数量，防止死循环 */
     const MAX_RETRY_ITEMS = 86;
     /* 随机翻页的最大深度（建议不要太大，否则边缘函数会超时） */
-    const MAX_RANDOM_PAGE = 32;
+    const MAX_RANDOM_PAGE = 48;
     /* 是否启用接口缓存 */
     const USE_CACHE = true;
     /* 是否启用调试模式 */
@@ -152,7 +152,7 @@ async function handleRequest(event) {
  */
 async function fetchWithCache(event, apiUrl, headers, useCache, debugMode) {
     /* TODO: 好奇怪，直接访问测试速度确实有明显提升，但控制台输出日志全是未命中缓存... 为什么呢... */
-    const cache = await caches.open("RDFURFRI");
+    const cache = await caches.open("rdfurfri");
     const cacheKey = new Request(apiUrl);
     if (useCache) {
         const cachedResponse = await cache.match(cacheKey);
@@ -173,10 +173,6 @@ async function fetchWithCache(event, apiUrl, headers, useCache, debugMode) {
     };
     return data;
 };
-
-addEventListener('fetch', event => {
-    event.respondWith(handleRequest(event));
-});
 
 function normalizeReferer(referer) {
     try {
@@ -218,3 +214,7 @@ function Documentation(currentUrl) {
         </html>`
     ].join('');
 };
+
+addEventListener('fetch', event => {
+    event.respondWith(handleRequest(event));
+});

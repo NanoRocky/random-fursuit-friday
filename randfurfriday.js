@@ -160,31 +160,66 @@ async function handleRequest(event) {
  * 缓存处理辅助函数
  */
 async function fetchWithCache(event, apiUrl, headers, useCache, debugMode) {
-    /* TODO: 好奇怪，直接访问测试速度确实有明显提升，但控制台输出日志全是未命中缓存... 为什么呢... */
-    const cache = await caches.open("rdfurfri");
-    const cacheKey = new Request(apiUrl);
-    try {
-        if (useCache) {
-            const cachedResponse = await cache.match(cacheKey);
+    const cacheInst = await (_cachePromise || (_cachePromise = caches.open(CACHE_NAMESPACE)));
+    const cacheKey = new Request(apiUrl, { method: 'GET' });
+    if (useCache) {
+        try {
+            /* EdgeOne Cache API：缓存条目“过期”场景下，cache.match 可能会直接抛错（例如 504）。因此这里必须兜底：match 异常/缓存内容损坏 → 删除该条目 → 回源重建。*/
+            const cachedResponse = await cacheInst.match(cacheKey);
             if (cachedResponse) {
-                if (debugMode) console.log(`[调试] 命中缓存: ${apiUrl}`);
-                return await cachedResponse.json();
+                try {
+                    const cachedResponseJson = await cachedResponse.json();
+                    if (debugMode) console.log(`[调试] 命中缓存: ${apiUrl}`);
+                    return cachedResponseJson;
+                } catch (e) {
+                    if (debugMode) console.log(`[调试] 缓存命中但 JSON 解析失败，删除并回源: ${apiUrl} (${e?.message || e})`);
+                    try {
+                        await cacheInst.delete(cacheKey);
+                    } catch (_) {
+                        /* ignore */
+                    };
+                };
             };
+        } catch (e) {
+            if (debugMode) console.log(`[调试] cache.match 异常(可能过期/未命中): ${apiUrl} (${e?.message || e})`);
         };
-    } catch (e) {
-        if (debugMode) console.log(`[调试] 缓存操作异常: ${e.message}`);
     };
     if (debugMode) console.log(`[调试] 缓存未命中，回源请求: ${apiUrl}`);
     try {
         const response = await fetch(apiUrl, { headers });
-        const data = await response.json();
+        const respForLog = debugMode ? response.clone() : null;
+        let data;
         try {
-            if (useCache && data.code === 0) {
-                const responseToCache = new Response(JSON.stringify(data));
-                /* 设置 s-maxage 为 28800 (8小时) */
-                responseToCache.headers.append('Cache-Control', 's-maxage=28800');
-                event.waitUntil(cache.put(cacheKey, responseToCache.clone()));
-                if (debugMode) console.log(`[调试] 已存入新缓存，有效期 8 小时`);
+            data = await response.jsrespForLogon();
+        } catch (e) {
+            if (debugMode && respForLog) {
+                const txt = await respForLog.text().catch(() => '');
+                console.log(`[调试] 回源响应非 JSON: status=${response.status} url=${apiUrl} body=${txt.slice(0, 300)}`);
+            };
+            throw e;
+        };
+        try {
+            if (useCache && data && data.code === 0) {
+                const responseToCache = new Response(JSON.stringify(data), {
+                    status: 200,
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8',
+                        /* 设置 s-maxage 为 28800 (8小时)*/
+                        'Cache-Control': 'public, s-maxage=28800'
+                    }
+                });
+                const putPromise = cacheInst.put(cacheKey, responseToCache.clone())
+                    .then(() => {
+                        if (debugMode) console.log(`[调试] 已存入新缓存，有效期 8 小时`);
+                    })
+                    .catch(err => {
+                        if (debugMode) console.log(`[调试] 存入缓存异常: ${err?.message || err}`);
+                    });
+                if (event && typeof event.waitUntil === 'function') {
+                    event.waitUntil(putPromise);
+                } else {
+                    await putPromise;
+                };
             };
         } catch (e) {
             if (debugMode) console.log(`[调试] 存入缓存异常: ${e.message}`);
@@ -192,7 +227,7 @@ async function fetchWithCache(event, apiUrl, headers, useCache, debugMode) {
         return data;
     } catch (e) {
         if (debugMode) console.log(`[调试] 回源请求异常: ${e.message}`);
-        return null;
+        throw e;
     };
     return null;
 };
@@ -237,6 +272,9 @@ function Documentation(currentUrl) {
         </html>`
     ].join('');
 };
+
+const CACHE_NAMESPACE = "rdfurfri";
+let _cachePromise;
 
 addEventListener('fetch', event => {
     event.respondWith(handleRequest(event));

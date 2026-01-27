@@ -163,24 +163,38 @@ async function fetchWithCache(event, apiUrl, headers, useCache, debugMode) {
     /* TODO: 好奇怪，直接访问测试速度确实有明显提升，但控制台输出日志全是未命中缓存... 为什么呢... */
     const cache = await caches.open("rdfurfri");
     const cacheKey = new Request(apiUrl);
-    if (useCache) {
-        const cachedResponse = await cache.match(cacheKey);
-        if (cachedResponse) {
-            if (debugMode) console.log(`[调试] 命中缓存: ${apiUrl}`);
-            return await cachedResponse.json();
+    try {
+        if (useCache) {
+            const cachedResponse = await cache.match(cacheKey);
+            if (cachedResponse) {
+                if (debugMode) console.log(`[调试] 命中缓存: ${apiUrl}`);
+                return await cachedResponse.json();
+            };
         };
+    } catch (e) {
+        if (debugMode) console.log(`[调试] 缓存操作异常: ${e.message}`);
     };
     if (debugMode) console.log(`[调试] 缓存未命中，回源请求: ${apiUrl}`);
-    const response = await fetch(apiUrl, { headers });
-    const data = await response.json();
-    if (useCache && data.code === 0) {
-        const responseToCache = new Response(JSON.stringify(data));
-        /* 设置 s-maxage 为 28800 (8小时) */
-        responseToCache.headers.append('Cache-Control', 's-maxage=28800');
-        event.waitUntil(cache.put(cacheKey, responseToCache.clone()));
-        if (debugMode) console.log(`[调试] 已存入新缓存，有效期 8 小时`);
+    try {
+        const response = await fetch(apiUrl, { headers });
+        const data = await response.json();
+        try {
+            if (useCache && data.code === 0) {
+                const responseToCache = new Response(JSON.stringify(data));
+                /* 设置 s-maxage 为 28800 (8小时) */
+                responseToCache.headers.append('Cache-Control', 's-maxage=28800');
+                event.waitUntil(cache.put(cacheKey, responseToCache.clone()));
+                if (debugMode) console.log(`[调试] 已存入新缓存，有效期 8 小时`);
+            };
+        } catch (e) {
+            if (debugMode) console.log(`[调试] 存入缓存异常: ${e.message}`);
+        };
+        return data;
+    } catch (e) {
+        if (debugMode) console.log(`[调试] 回源请求异常: ${e.message}`);
+        return null;
     };
-    return data;
+    return null;
 };
 
 function normalizeReferer(referer) {

@@ -9,6 +9,7 @@ async function handleRequest(event) {
     const url = new URL(request.url);
     /* 获取参数，默认为 pc。【可用参数：pc、phone、mobile、all】 */
     const type = url.searchParams.get('type') || 'pc';
+    const dv = url.searchParams.get('dv') || '0';
     /* tc=1 时使用代获取模式 */
     const tc = url.searchParams.get('tc') || '0';
     /* 允许使用代理模式的来源列表，留空则允许所有 */
@@ -149,10 +150,10 @@ async function handleRequest(event) {
             };
             return Response.redirect(foundImageUrl, 302);
         };
-        return new Response("ERROR", { status: 200 });
+        return dv === '1' && DEBUG_MODE ? new Response("ERROR: No image found", { status: 200 }) : new Response("ERROR", { status: 200 });
     } catch (e) {
         if (DEBUG_MODE) console.log(`[调试] 发生错误: ${e.message}`);
-        return new Response("ERROR", { status: 200 });
+        return dv === '1' && DEBUG_MODE ? new Response("ERROR: " + e.message, { status: 200 }) : new Response("ERROR", { status: 200 });
     };
 };
 
@@ -190,7 +191,7 @@ async function fetchWithCache(event, apiUrl, headers, useCache, debugMode) {
         const respForLog = debugMode ? response.clone() : null;
         let data;
         try {
-            data = await response.jsrespForLogon();
+            data = await response.json();
         } catch (e) {
             if (debugMode && respForLog) {
                 const txt = await respForLog.text().catch(() => '');
